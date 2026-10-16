@@ -9,7 +9,7 @@ import logging
 import datetime
 from zoneinfo import ZoneInfo
 
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
 )
@@ -17,7 +17,7 @@ from telegram.ext import (
 import config
 import database.db as db
 from database.migrations import run_migrations
-from handlers.user import start, help_cmd, admin_cmd
+from handlers.user import start, help_cmd
 from handlers.messages import handle_text, handle_callback
 from handlers.backup import handle_document
 from backup.backup import auto_backup_job
@@ -67,6 +67,13 @@ async def _post_init(application: Application):
     logger.info("Auto-backup loop started (daily at %02d:00 %s).",
                 config.AUTO_BACKUP_HOUR, config.TIMEZONE)
 
+    # قائمة أوامر البوت (زر Menu): /start فقط — أمر /admin أُلغي نهائيًا
+    # ولوحة الأدمن تُعرض ضمن /start للأدمن فقط.
+    await application.bot.set_my_commands([
+        BotCommand("start", "القائمة الرئيسية 🏠"),
+    ])
+    logger.info("Bot commands menu updated.")
+
 
 def main():
     if not config.BOT_TOKEN:
@@ -78,12 +85,17 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_cmd))
-    application.add_handler(CommandHandler("admin", admin_cmd))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     logger.info("Bot starting (polling)...")
+    # Python 3.14 compat: PTB 21.x calls asyncio.get_event_loop() which raises
+    # RuntimeError when no current loop exists in the main thread.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
