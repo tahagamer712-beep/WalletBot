@@ -1,450 +1,154 @@
-# محفظة — بوت تليجرام لإدارة مصاريف العائلة (Termux-first)
+<div align="center">
 
-مشروع مبني من الصفر ليعمل بأقل احتكاك ممكن على **Termux / Android ARM64**،
-بدون أي مكتبة تحتاج بناء Rust أو C/C++، وبدون قاعدة بيانات خارجية.
+# 💰 محفظة — WalletBot
 
-**تعديلات هذه النسخة (اختيار موديل OpenRouter مجاني + تصنيفات أوسع بكثير):**
-- 🆓 **لوحة الأدمن → 🤖 الذكاء الاصطناعي → 🆓 موديل OpenRouter** — يجلب قائمة
-  حية فعليًا من OpenRouter API ويفلترها للمجانية حصرًا (`pricing == 0` أو الـ
-  id ينتهي بـ `:free`)، بـ pagination، والاختيار يُحفظ بقاعدة البيانات ويسري
-  فورًا بالرسالة التالية بدون إعادة تشغيل البوت.
-- 🧠 **الذكاء الاصطناعي صار أولوية فعلية للتصنيف، والـ Regex احتياطي مؤقت
-  بس** — تحققت من الكود الموجود: كل رسالة تجرّب AI أولًا من جديد (ماكو "علم
-  معطّل" يبقى عالق بين الرسائل)، فلو انقطع الاتصال يرجع تلقائيًا يعتمد AI
-  بأول رسالة بعد ما يرجع الاتصال، بدون أي تدخل يدوي.
-- 🏷️ **إضافة ~25 تصنيف جديد** (صحة، صالون، رياضة، إلكترونيات، سفر، صيانة
-  سيارة، صيانة منزل، أثاث، عناية شخصية، تدخين، حيوانات أليفة، مناسبات،
-  تبرعات، تأمين، ضرائب ورسوم، مطاعم، ألعاب، قرطاسية... ودخل: استثمار، إيجار،
-  مكافأة، بيع). تحققت فعليًا من عدم وجود أي تصادم تصنيف بسبب هذا التوسّع الكبير
-  (142 كلمة مرادفة الآن، صفر تصادم).
-- 🔄 **System Prompt الخاص بالـ AI صار ديناميكي بالكامل** — يُبنى من
-  التصنيفات الفعّالة الحالية بقاعدة البيانات (نفس مصدر لوحة الأدمن والـ
-  Excel) مو نص ثابت بالكود. أي تصنيف يضيفه الأدمن لاحقًا من ⚙️ الإعدادات
-  يوصل للـ AI تلقائيًا بالرسالة التالية.
+### Family expense manager for Telegram — in plain Arabic
 
-**تعديلات النسخة السابقة (تحمّل الأخطاء الإملائية بالـ Regex Parser):**
-- 🔤 **إصلاح حقيقي:** "بانزين" (وأخطاء مشابهة زي "تاكسى"، "صيدليه") ماعاد
-  تُسجَّل تحت "أخرى" — يتصحح تلقائيًا لـ"وقود"/"مواصلات"/"أدوية". الحل:
-  مطابقة exact-lookup على شكل "مضغوط" للكلمة (ألف داخلية زايدة + ة/ه + ى/ي
-  موحّدة) بعد فشل المطابقة الدقيقة — **وليس** fuzzy matching عام (جرّبته
-  وتراجعت عنه لأنه يعطي نتائج خطرة: "سيارة" و"سيادة" طلعت نسبة تشابه أعلى من
-  "مواصلة" و"مواصلات" الحقيقيتين). تحقّقت فعليًا إن هذا التوحيد ما يسبب أي
-  تصادم بين تصنيفات مختلفة بالقاموس الحالي، وإن كلمة حقيقية غير معروفة
-  (زي "خضرمة") تبقى تروح لـ"أخرى" بشكل صحيح، صفر مطابقات زائفة.
-- ℹ️ الـ AI parser ما احتاج نفس الإصلاح — النماذج اللغوية أصلًا تتعامل مع
-  الأخطاء الإملائية بشكل طبيعي من دون قاعدة إضافية بالـ prompt.
+Just write what you spent. The bot understands, categorizes, tracks loans
+and savings, and builds your reports — from an Android phone via Termux.
 
-**تعديلات النسخة السابقة (نظام الالتزامات الموحّد + أهداف الادخار + Excel 7 Sheets):**
-- 📌 **"سلفة" توسّعت لنظام "الالتزامات المالية" الموحّد** — ثلاثة أنواع مستقلة
-  بجداول SQLite منفصلة: 💸 سلفة (كما كانت)، 💳 قسط (يحسب عدد الأقساط تلقائيًا
-  من السعر ÷ قيمة القسط)، 🔄 التزام متكرر (إيجار/اشتراك/فاتورة، مع خيار
-  "📄 التزام آخر" لالتزام لمرة وحدة). كل نوع له `auto_deduct` مستقل — يسألك
-  البوت صراحة هل تريد الاستقطاع التلقائي عند تسجيل كل راتب أم لا.
-- 🔥 **محرك استقطاع موحّد** — عند أي دخل بتصنيف "راتب"، يفحص كل الالتزامات
-  الثلاثة النشطة `auto_deduct=1` لنفس المستخدم دفعة وحدة، ويطبّق كل استقطاع
-  بشكل مستقل تمامًا عن الباقي، ويعرض رسالة تأكيد مجمّعة (الراتب، كل استقطاع
-  بسطر، ثم الصافي) بالضبط بالشكل المطلوب.
-- 🎯 **ميزة "أهداف الادخار" جديدة بالكامل** — إنشاء هدف، إضافة مبلغ، ومتابعة
-  التقدم بشريط تقدم نصي (`████░░░░ 25%`)، محفوظة بجدول SQLite مستقل.
-- 📊 **Excel أصبح تقريرًا ماليًا كاملًا من 7 Sheets** بدل جدول واحد: الملخص
-  (يشمل الاستقطاعات والادخار بالفترة، مو بس الدخل/المصروف)، جميع المعاملات،
-  التصنيفات (مصروف) مع عدد العمليات ومخطط أعمدة، الدخل حسب التصنيف بنفس
-  الأسلوب، الالتزامات (كل سلفة/قسط بمكان واحد)، الدفعات والاستقطاعات (سجل
-  كامل قابل للمراجعة)، وأهداف الادخار مع النسبة المئوية لكل هدف.
-- 🗄️ **ترقية آمنة لقاعدة بيانات موجودة مسبقًا** — أضفت migration حقيقي
-  (`database/migrations.py`) يضيف الأعمدة الجديدة لجدول `loans` القديم
-  (`name`, `auto_deduct`, `completed_at`) ويوحّد `status='paid'` القديمة إلى
-  `'completed'` — **بدون حذف أو فقدان أي سلفة أو استقطاع موجود مسبقًا على
-  جهازك**. اختبرته فعليًا بمحاكاة قاعدة بيانات قديمة والتأكد من الترقية.
-- ⚠️ **تبسيط مقصود بخصوص "التكرار":** الالتزام المتكرر لا يتحقق من التاريخ/التكرار
-  الفعلي (شهري مقابل أسبوعي) — أي التزام `auto_deduct=1` يُستقطع مع **كل** راتب
-  تستلمه، بغض النظر عن "شهريًا" المكتوبة. هذا قرار تصميم مقصود لتجنّب إضافة
-  scheduler حقيقي (APScheduler) لم يكن ضروريًا سابقًا — إذا احتجت لاحقًا تتبع
-  تواريخ استحقاق فعلية، هذا يحتاج تصميمًا إضافيًا (`next_date` + جدولة).
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![python-telegram-bot](https://img.shields.io/badge/python--telegram--bot-21.6-blue)](https://docs.python-telegram-bot.org/)
+[![Platform](https://img.shields.io/badge/Platform-Termux%20%7C%20Linux-green?logo=android)](https://termux.dev/)
+[![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-- ℹ️ **لم أنفّذ "الـ AI المالي" (المرحلة 5 بمواصفاتك)** — طلبت صراحة تأجيلها
-  لآخر مرحلة بعد استقرار البيانات ("نخليه آخر مرحلة")، فتركتها كما هي.
-- ℹ️ **جدول `categories` فيه الآن تصنيفات نوع `commitment`** (سلفة، قسط، إيجار،
-  اشتراك، فاتورة، التزام آخر) جاهزة للاستخدام مستقبلًا، لكن شاشات إضافة
-  الالتزام الحالية ما تربط اسم الالتزام بيها فعليًا بعد (الاسم نص حر يكتبه
-  المستخدم) — تبسيط مقصود لتقليل عدد الأسئلة بمرحلة الإضافة، قابل للربط لاحقًا
-  لو احتجته.
-
-**تعديلات النسخة السابقة (Excel احترافي + سلفة + تصنيف مشروبات + أزرار رجوع):**
-- 📊 **Excel أصبح شكله احترافيًا فعليًا** — عنوان علوي، هيدر ملوّن ببنفسجي مع
-  نص أبيض، صفوف بالتناوب (zebra striping)، حدود، تجميد الصف العلوي، فلترة
-  تلقائية، تنسيق أرقام صحيح، اتجاه RTL كامل، وأهم شي: **مخطط أعمدة (Chart)**
-  فعلي بورقة الملخص يوضّح المصروف حسب التصنيف بصريًا بدل جدول أرقام جاف.
-- 🍹 **تصنيف "مشروبات" جديد** (ويسكي، بيرة، عصير، ببسي...) — للـ Regex وللـ
-  AI (حدّثت الـ prompt نفسه) بحيث "50 الف ويسكي" تُصنَّف صح مو "أخرى".
-- 🧠 **الفهم المرن يشمل AI الآن مو بس Regex** — عدّلت System Prompt الخاص
-  بالـ AI ليطبّق نفس القواعد: بدون فعل صريح يشتغل، وكلمة/تصنيف غير واضح
-  يسجَّل تحت "أخرى"/"دخل آخر" بدل رفض الرسالة (بما فيها حالة "استلمت 1$").
-- 🔙 **زر "🔙 رجوع" بعد كل شاشة تقريبًا** (أدمن ومستخدم) — التنقّل صار يعدّل
-  نفس الرسالة مكانها بدل ما يرسل رسائل جديدة متراكمة.
-- 🔲 **إعادة ترتيب أزرار لوحة الأدمن وقائمة المستخدم** لصفوف بعرضين بدل عمود
-  طويل واحد.
-- 💸 **ميزة "سلفة" جديدة بالكامل** — محفوظة بجدول SQLite مستقل (`loans` +
-  `loan_deductions`)، وليست مجرد تسجيل مبلغ عادي. كل سلفة تُدار من زر مستقل
-  بالقائمة الرئيسية، وعند استلام أي دخل بتصنيف "راتب" يُطبَّق تلقائيًا
-  استقطاع كل سلفة نشطة لنفس المستخدم (كل سلفة مستقلة تمامًا عن غيرها)،
-  وتتوقف تلقائيًا وتُعلَّم "مسددة" عند وصول المتبقي لصفر. التفاصيل الكاملة
-  بالقسم المخصص أدناه.
-
-**تعديلات النسخة السابقة (تغيير تصميم الواجهة + تحسين الفهم الطبيعي):**
-- 🎨 **إزالة أزرار الـ Reply Keyboard المثبتة تحت الشات نهائيًا.** بدلها:
-  `/start` يعرض ترحيبًا (فيه اسم المستخدم ومعرفه، بدون أي ذكر للأدمن) مع أزرار
-  Inline ملتصقة بنفس الرسالة (الملخص، السجل، التقارير، الرصيد، Excel،
-  الإعدادات) — تظهر لكل المستخدمين بدون استثناء الأدمن.
-- 🔐 **أمر `/admin` جديد ومنفصل تمامًا** — يفتح لوحة الأدمن كأزرار Inline
-  بالشات. لغير الأدمن: **صمت تام، بدون أي رد إطلاقًا** (لا حتى رسالة رفض) حتى
-  لا يُكشف وجود صلاحية أدمن من الأساس.
-- ⚡ **الفهم الطبيعي صار أسرع وأذكى:**
-  - يفهم الأرقام العربية-الهندية (٠١٢٣٤٥٦٧٨٩) بالإضافة للعادية.
-  - ماعاد يحتاج فعل صريح ("صرفت"/"استلمت") — «500 اكل» أو «راتب 750 الف»
-    تُسجَّل مباشرة، والنوع (مصروف/دخل) يُحدَّد تلقائيًا من التصنيف نفسه لو
-    كان معروفًا كتصنيف دخل (راتب، تحويل...).
-  - كلمة غير معروفة (مثل «250 ببسي») ماعاد تُرفض — تُسجَّل تلقائيًا تحت تصنيف
-    "أخرى" مع حفظ الكلمة الأصلية كملاحظة، بدل رسالة "ما فهمت".
-  - الرفض الآن يحصل فقط إذا ماكو رقم بالرسالة إطلاقًا (رسالة عادية مثل
-    "شلونك؟").
+</div>
 
 ---
 
-**تعديلات النسخة السابقة (بعد مراجعة خارجية ثانية):**
-- 🔴 **إصلاح حقيقي ومهم:** `ai/providers.py` كان يستخدم `gemini-1.5-flash` — موديل متوقف نهائيًا (404) منذ سبتمبر 2025. تم استبداله بـ `gemini-3.5-flash-lite` (GA حاليًا، وهو الموديل الموصى به رسميًا من Google لمهام extraction/classification عالية التكرار — بالضبط طبيعة مهمة هذا البوت). تفاصيل كاملة أدناه في القسم المخصص.
-- ✅ تحقّقت من ادّعاء "routing مكسور بين أزرار AI/Backup" بتشغيل الكود الحقيقي فعليًا — النتيجة: التوجيه كان سليمًا، والفحص الحي الآن مدمج بشكل دائم داخل `termux_check.py` (بند 19).
-- ✅ أضفت زر Excel لأي مستخدم محدد من داخل لوحة الأدمن (كان ناقصًا فعلًا — هذا كان تقصير حقيقي).
-- ℹ️ التذكير بـ Fernet/cryptography كان قراءة خاطئة لتعليق بالكود يشرح **لماذا لم تُستخدم** — لا يوجد أي كود Fernet فعّال في المشروع.
+## ✨ Features
 
----
+| Area | What it does |
+|------|--------------|
+| 💬 **Natural input** | `500 اكل` or `راتب 750 الف` — no verbs needed; Arabic-Indic digits supported |
+| 🧠 **AI first, regex fallback** | Every message tries AI (Gemini / Groq / OpenRouter) first, regex if offline |
+| 🏷️ **Categories** | ~40 categories, ~142 synonyms, typo-tolerant (`بانزين` → fuel, `صيدليه` → medicine) |
+| 💸 **Loans** | Track advances; auto-deduct from each salary until fully repaid |
+| 💳 **Installments** | Installment count computed automatically from price ÷ payment |
+| 🔄 **Recurring commitments** | Rent, subscriptions, bills — auto-deducted on salary with per-item toggle |
+| 🎯 **Savings goals** | Create goals and follow progress with a text progress bar |
+| 📊 **Excel reports** | Full 7-sheet financial report with charts (summary, transactions, categories, income, commitments, deductions, savings) |
+| 💾 **Backup & restore** | Automatic daily backups + one-tap restore from the admin panel |
+| 🤖 **AI admin** | Pick a free OpenRouter model from a live list, manage API keys, test the connection |
+| 🔐 **Silent admin** | `/admin` answers nothing at all to non-admins — not even a refusal |
 
-## -1) ميزة "سلفة" — كيف تعمل بالتفصيل
+## 🏗️ Architecture
 
-**التخزين:** جدولان جديدان بـ `wallet.db` (يبقيان بعد إعادة تشغيل Termux):
-- `loans`: id, user_id, original_amount, deduction_per_salary, remaining_amount, status (`active`/`paid`/`cancelled`), created_at, updated_at.
-- `loan_deductions`: سجل كل استقطاع (مربوط بمعرّف عملية الراتب لو كان تلقائيًا، أو `NULL` لو تسديد يدوي)، مع `kind` (`salary`/`manual`).
-
-**الربط التلقائي بالراتب:** أي عملية دخل بتصنيف "راتب" (من AI أو Regex أو
-بدون فعل صريح) تمرّ عبر `handlers/loans.apply_salary_deductions()` بعد
-تسجيلها مباشرة. الاستقطاع **ليس عملية منفصلة** بجدول `transactions` — فقط
-يُخصم من رصيد كل سلفة نشطة ويُسجَّل بـ `loan_deductions`، وتظهر رسالة التأكيد
-مدمجة بالشكل المطلوب بالضبط:
+```mermaid
+flowchart LR
+    U([Family member]) -->|Arabic message| BOT[WalletBot]
+    BOT --> RT[Parser router]
+    RT --> AI[AI parser · Gemini/Groq/OpenRouter]
+    RT -->|fallback| RX[Regex parser · typo-tolerant]
+    AI --> VAL[Validator]
+    RX --> VAL
+    VAL --> DB[(SQLite · wallet.db)]
+    DB --> REP[Reports & Excel]
+    DB --> LOAN[Loans & commitments engine]
+    LOAN -->|on salary| DEDUCT[Auto-deduction]
+    SCHED[Scheduler] --> BK[Daily backup]
+    ADM[Admin panel] --> DB
 ```
-✅ تم تسجيل الدخل
-💼 راتب
-1,500,000
-💸 استقطاع سلفة #1: -100,000
-━━━━━━━━━━━━
-💵 الصافي: 1,400,000
+
+## 📁 Project structure
+
 ```
-لو عنده أكثر من سلفة نشطة، كل وحدة تُخصم بشكل مستقل بنفس الرسالة (سطر لكل
-سلفة). لو وصل المتبقي للصفر تُضاف تلقائيًا "✅ تم تسديد السلفة بالكامل."
-وتتحول حالتها لـ `paid` فتتوقف الاستقطاعات المستقبلية عنها تلقائيًا.
+├── bot.py                 # Entry point (long polling)
+├── config.py              # Settings
+├── termux_check.py        # 20-point Termux compatibility self-check
+├── parser/                # Message understanding
+│   ├── parser_engine.py   # Routing: AI first, regex fallback
+│   ├── ai_parser.py       # AI extraction (JSON mode)
+│   ├── regex_parser.py    # Typo-tolerant regex + synonyms
+│   └── validator.py       # Transaction validation
+├── ai/                    # AI providers
+│   ├── router.py          # Provider routing & fallback
+│   ├── providers.py       # Gemini / Groq / OpenRouter
+│   └── prompts.py         # Dynamic system prompt (built from live categories)
+├── database/              # SQLite (aiosqlite)
+│   ├── db.py              # Connection & queries
+│   ├── models.py          # Schema
+│   └── migrations.py      # Safe upgrades for existing databases
+├── handlers/              # Telegram handlers
+│   ├── messages.py        # Natural-language transactions
+│   ├── user.py            # User menu (summary, history, balance)
+│   ├── loans.py           # Loans
+│   ├── installments.py    # Installments
+│   ├── commitments.py     # Recurring commitments
+│   ├── savings.py         # Savings goals
+│   ├── reports.py         # Reports
+│   ├── excel.py           # Excel export
+│   ├── admin.py           # Admin panel
+│   ├── ai_admin.py        # AI settings (model picker, keys, test)
+│   ├── backup.py          # Backup & restore
+│   └── settings.py        # User settings
+├── reports/               # Balance, monthly, statistics
+├── backup/                # Backup & restore engine
+├── utils/                 # Categories, currency, dates, reply, security
+├── tests/                 # Tests (carry-forward, ...)
+├── .env.example           # Environment template
+└── requirements.txt       # Dependencies (pure Python only)
+```
 
-**الإدارة الكاملة** من زر «💸 سلفة» بالقائمة الرئيسية: إضافة سلفة (سؤالين
-متتاليين: المبلغ ثم الاستقطاع)، تعديل الاستقطاع، عرض تفاصيل/سجل الاستقطاعات،
-تسديد جزء يدوي (خارج دورة الرواتب)، وإلغاء السلفة (بتأكيد).
-
-**كيف تحققت من صحة المنطق:** شغّلت 10 "رواتب" وهمية متتالية على سلفة
-1,000,000 باستقطاع 100,000 لكل راتب عبر نفس منطق `apply_loan_deduction`
-بالضبط (SQL حقيقي)، وتأكدت إنها توصل لصفر بالضبط بالراتب العاشر وتتحول تلقائيًا
-لحالة `paid` بدون أي راتب حادي عشر إضافي يُخصم منه.
-
-**ملاحظة عن الجدولة:** لا يحتاج المشروع أي "job" مجدول وقتيًا لهذي الميزة —
-الاستقطاع مرتبط بحدث (استلام راتب)، مو بوقت معيّن. إذا احتجت لاحقًا تذكيرًا
-دوريًا (مثلًا "عندك سلفة لسا 3 استقطاعات") فـ JobQueue من python-telegram-bot
-خيار جاهز، لكن ما أضفته الحين لأنه غير مطلوب فعليًا بالتصميم الحالي.
-
----
-
-## 0) إصلاح Gemini — التفاصيل الكاملة
-
-**المشكلة:** `gemini-1.5-flash` متوقف نهائيًا ويرجع 404 اعتبارًا من هذا التاريخ.
-لو كان عندك مفتاح Gemini مضاف، كان سيفشل بصمت وينتقل الـ Router لـ Groq ثم
-Regex — البوت يستمر بالعمل، لكن Gemini تحديدًا معطّل بدون أي رسالة خطأ واضحة
-للأدمن.
-
-**الإصلاح في `ai/providers.py`:**
-- الموديل الجديد: `gemini-3.5-flash-lite` — أحدث جيل GA من Google (Gemini 3.x)،
-  وهو تحديدًا الموديل الموصى به لمهام "extraction/routing/classification
-  عالية الحجم" — وصف دقيق لمهمة هذا البوت (تحويل رسالة قصيرة إلى JSON).
-- حذفت `temperature` من `generationConfig` — أصبحت **مهجورة ومُتجاهَلة بالكامل**
-  في Gemini 3.x، وستُرجع HTTP 400 في أجيال قادمة حسب توثيق Google الحالي.
-  إبقاؤها كانت ستعمل بصمت اليوم لكن تنكسر لاحقًا بدون تحذير.
-- أضفت `thinkingConfig: {"thinkingLevel": "minimal"}` — البديل الرسمي الحالي،
-  والقيمة الموصى بها تحديدًا لمهام التصنيف/الاستخراج عالية التكرار (أعلى
-  إنتاجية، أقل زمن استجابة). هذه أيضًا القيمة الافتراضية لهذا الموديل، لكن
-  أضفتها صراحةً لضمان الاستقرار لو غيّرت Google الافتراضي مستقبلًا.
-- أبقيت `response_mime_type: "application/json"` كما هو — لا يوجد أي إشارة
-  في توثيق Google الحالي أنه تأثر بهذا الـ migration.
-- الـ endpoint نفسه (`v1beta/.../generateContent`) وطريقة تمرير المفتاح
-  (`?key=`) لم يتغيرا — لا يزالان مستخدَمين في أمثلة Google الرسمية الحالية.
-
-**كيف اختبرته (بدون مفتاح API حقيقي ولا اتصال إنترنت):**
-شغّلت `GeminiProvider.parse()` **الحقيقية نفسها** (نفس الكود المستخدم فعليًا
-من `ai/router.py`، وليس نسخة مبسّطة أو محاكاة) عبر حقن `httpx.MockTransport`
-(أضفت دعم حقن `client` اختياري في `BaseProvider` خصيصًا لهذا — لا يغيّر أي
-سلوك عند التشغيل الحقيقي). تحققت فعليًا أن:
-- الـ URL يحتوي الموديل الجديد وليس القديم.
-- الـ body لا يحتوي `temperature`/`top_p`/`top_k`.
-- `thinkingConfig.thinkingLevel` موجود بالقيمة الصحيحة.
-- رد Gemini وهمي بنفس الشكل الحقيقي (`candidates[0].content.parts[0].text`)
-  يُستخرَج ويتحول لعملية صحيحة عبر `_extract_json` والـ validator.
-
-هذا الاختبار الآن دائم داخل `termux_check.py` (بند 20) — يشتغل تلقائيًا في كل
-تشغيل مستقبلي.
-
-**ما لم أختبره ولا أدّعيه:** لم أتصل بـ Gemini API الحقيقي بمفتاح حقيقي — ما
-عندي مفتاح ولا اتصال إنترنت هنا. الاختبار أعلاه يثبت أن **شكل الطلب صحيح حسب
-توثيق Google الحالي وقت كتابة هذا**، وليس أن استجابة حقيقية من الخادم ستنجح
-بالضبط. جرّب مفتاحًا حقيقيًا وبند "🧪 اختبار" في لوحة الأدمن (`🤖 الذكاء
-الاصطناعي → 🗝️ API Keys`) للتأكيد النهائي.
-
----
-
-## 1) قائمة Dependencies النهائية — وسبب كل واحدة
-
-| المكتبة | لماذا | Pure Python؟ | بديل تم استبعاده |
-|---|---|---|---|
-| `python-telegram-bot` | التعامل مع Telegram Bot API | نعم (تعتمد على `httpx` نفسها) | لا يوجد بديل ضروري |
-| `aiosqlite` | غلاف async فوق `sqlite3` المدمجة في Python | نعم (يستخدم `sqlite3` من المكتبة القياسية عبر thread) | `SQLAlchemy` — تعقيد غير ضروري لمشروع بجدول واحد رئيسي |
-| `openpyxl` | إنشاء ملفات Excel (.xlsx) | نعم | `pandas` — مرفوض صراحة (ثقيل، يحتاج numpy) |
-| `python-dotenv` | قراءة `.env` | نعم | — |
-| `httpx` | طلبات REST لمزودات AI (Gemini/Groq/OpenRouter) | نعم | SDKs خاصة بكل مزوّد — رفضتها لتقليل الاعتماديات |
-| `tzdata` | قاعدة بيانات المناطق الزمنية لـ `zoneinfo` | نعم (بيانات فقط، لا كود C) | `pytz` — تمت إزالتها بالكامل |
-
-**تمت إزالتها بالكامل من المشروع:**
-
-| المكتبة | لماذا أزلتها |
-|---|---|
-| `cryptography` (Fernet) | على Termux/ARM64 غالبًا لا يوجد لها wheel جاهز لكل توليفة Python، فيضطر pip لبناءها من المصدر — وهذا يحتاج **Rust toolchain**. استبدلتها بتشويش XOR بسيط من `hashlib`+`base64` القياسيتين (تفاصيل الـ trade-off في `utils/security.py`). |
-| `pytz` | استبدلتها بـ `zoneinfo` (مكتبة قياسية من Python 3.9+) + حزمة `tzdata` (بيانات فقط، pure Python). |
-| `APScheduler` | كانت تُستخدم فقط لتشغيل نسخة احتياطية يومية. استبدلتها بحلقة `asyncio.sleep` بسيطة داخل `bot.py` — لا حاجة لمكتبة جدولة كاملة من أجل مهمة واحدة يوميًا. |
-| `pandas` / `numpy` / `SQLAlchemy` / `psycopg2` / `bcrypt` / `uvloop` | لم تُستخدم إطلاقًا في أي نسخة من المشروع. |
-
-**النتيجة:** كل مكتبة في `requirements.txt` النهائي هي **Pure Python 100%** —
-لا حزمة واحدة تحتاج compilation عند التثبيت على Termux.
-
----
-
-## 2) API Keys — التخزين وليس "التشفير الحقيقي" (Trade-off صريح)
-
-مفاتيح AI (Gemini/Groq/OpenRouter) تُحفظ بعد تشويشها بـ XOR (باستخدام `hashlib`
-و`base64` من المكتبة القياسية فقط، بدون أي تثبيت إضافي) — **وليس تشفيرًا
-معياريًا قويًا**. الشرح الكامل موجود كتعليق في أعلى `utils/security.py`، وخلاصته:
-
-- المشروع محلي بالكامل على هاتفك أنت، وليس سيرفر يشاركه عدة أشخاص.
-- تشفير حقيقي (AES/Fernet) يحتاج `cryptography`، وهي بالضبط المكتبة التي غالبًا
-  تفشل بالتثبيت على Termux/ARM64 بدون Rust.
-- الحل الحالي يمنع ظهور المفتاح كنص صريح لو انفتحت `wallet.db` بأداة عرض عادية،
-  لكنه لا يقاوم شخصًا يملك كل من `.env` (فيه `SECRET_KEY`) ونسخة القاعدة معًا.
-- الحماية الحقيقية لبياناتك تبقى أمان الهاتف نفسه (قفل الشاشة، تشفير التخزين
-  على مستوى Android) — وهذا خارج نطاق أي مكتبة بايثون.
-
-المفتاح لا يظهر كاملًا أبدًا في لوحة الأدمن (آخر 4 خانات فقط)، ويمكن تعطيله أو
-حذفه أو اختباره من `🔐 لوحة الأدمن → 🤖 الذكاء الاصطناعي → 🗝️ API Keys`.
-
-`SECRET_KEY` يُولَّد تلقائيًا أول مرة تشغّل فيها `bot.py` أو `termux_check.py`،
-ويُحفظ في `.env` — لا تحتاج تفعل شيء يدويًا.
-
----
-
-## 3) إضافة مزوّد AI مجاني (اختياري لكن موصى به)
-
-من داخل البوت (كأدمن): `🔐 لوحة الأدمن → 🤖 الذكاء الاصطناعي → 🗝️ API Keys → ➕ إضافة مفتاح`
-
-مزودات مدعومة افتراضيًا (طبقة مجانية عند وقت كتابة هذا):
-- **Gemini** (Google AI Studio) — احصل على مفتاح من https://aistudio.google.com/apikey — يستخدم البوت حاليًا موديل `gemini-3.5-flash-lite` (راجع القسم 0 أعلاه لتفاصيل التحديث)
-- **Groq** — احصل على مفتاح من https://console.groq.com/keys
-- **OpenRouter** (نماذج `:free`) — من https://openrouter.ai/keys
-
-> **ملاحظة صادقة:** المشروع نفسه مجاني بالكامل، لكن Gemini/Groq/OpenRouter
-> شركات خارجية تتحكم بحصص وشروط طبقتها المجانية، ولا أحد يقدر يضمن بقاءها
-> مجانية للأبد أو أن الحصة تكفي استخدامك اليومي. لهذا بالضبط بُني الـ Regex
-> Parser كـ **fallback إجباري وليس اختياري** — حتى لو توقفت كل خدمات AI أو
-> انتهت حصتها، تسجيل العمليات (بفهم أبسط لكن يعمل) يستمر بدون أي انقطاع.
-
-## 4) التثبيت على Termux
+## 🚀 Quick start
 
 ```bash
-pkg update && pkg upgrade -y
-pkg install -y python
-cd wallet
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+# 1. Install dependencies
+python3 -m pip install -r requirements.txt
+
+# 2. Configure
 cp .env.example .env
-# افتح .env وعدّل:
-#   BOT_TOKEN=توكن_البوت_من_BotFather
-#   ADMIN_ID=معرفك_الرقمي (من @userinfobot)
-python termux_check.py    # فحص شامل قبل التشغيل — يجب أن يظهر RESULT: PASS
-python bot.py
+chmod 600 .env
+# fill BOT_TOKEN (from @BotFather) in .env
+
+# 3. Verify the environment (recommended on Termux)
+python3 termux_check.py
+
+# 4. Run
+python3 bot.py
 ```
 
-أو ببساطة شغّل السكربت الجاهز:
+Every dependency is **pure Python** — no Rust or C/C++ compilation, so
+installation works on Termux/ARM64 with plain `pip install`.
+
+## ⚙️ Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BOT_TOKEN` | ✅ | Bot token from [@BotFather](https://t.me/BotFather) |
+| `ADMIN_ID` | ✅ | Admin's numeric Telegram ID |
+| `TIMEZONE` | — | Default: `Asia/Baghdad` |
+| `DEFAULT_EXCHANGE_RATE` | — | IQD per USD (default: `1500`) |
+| `BACKUP_KEEP_COUNT` | — | Daily backups kept (default: `7`) |
+| `AUTO_BACKUP_HOUR` | — | Backup hour (default: `3`) |
+| `SECRET_KEY` | — | Auto-generated on first run if left empty |
+
+## 💡 Usage examples
+
+```
+500 اكل            → مصروف 500 على الأكل
+راتب 750 الف       → دخل راتب 750,000 (مع استقطاعات السلف تلقائيًا)
+50 الف ويسكي       → مصروف 50,000 على المشروبات
+استلمت 1$          → دخل 1 دولار (يُحوَّل بالسعر الافتراضي)
+```
+
+Unknown words are recorded under «أخرى» with the original word kept as a
+note — the bot never rejects a message that contains a number.
+
+## 🧪 Tests
 
 ```bash
-bash install.sh
+python3 -m unittest discover -s tests -v
+python3 termux_check.py   # 20-point environment & logic self-check
 ```
 
-للإبقاء على البوت يعمل بعد إغلاق التطبيق:
+## 🖥️ Deployment
 
-```bash
-termux-wake-lock
-nohup python bot.py > wallet.log 2>&1 &
-```
+Production runs on a **Nokia 6.1 (Termux, Android 10)** inside the `bots`
+tmux session. The bot runs as a single instance; a second instance causes
+Telegram `getUpdates` conflicts.
 
-لإيقافه: `pkill -f bot.py`
+## 📄 License
 
----
-
-## 5) `termux_check.py` — فحص حقيقي وليس مجرد `py_compile`
-
-`py_compile` يتحقق فقط من صحة الصياغة — لا يثبت أن المكتبات تعمل فعليًا أو أن
-منطق قاعدة البيانات صحيح. `termux_check.py` يشغّل 18+ فحصًا حقيقيًا (runtime)،
-كل فحص مستقل عن البقية:
-
-1. إصدار Python
-2. بيئة Termux/Android
-3. المعمارية (ARM64/aarch64)
-4. SQLite (المدمجة)
-5. `aiosqlite`
-6. `openpyxl`
-7. `httpx`
-8. `python-telegram-bot`
-9. `zoneinfo` (Asia/Baghdad)
-10. تهيئة قاعدة بيانات مؤقتة (لا يلمس `wallet.db` الحقيقي)
-11. كتابة/قراءة فعلية من القاعدة
-12. إدخال عملية مالية فعلية
-13. تحويل العملة
-14. Regex Parser (بأمثلة حقيقية من رسائل عربية)
-15. استيراد AI Router
-16. طبقة HTTP لمزودات AI عبر `httpx.MockTransport` (بدون إنترنت حقيقي ولا مفتاح API)
-17. توليد ملف Excel فعلي
-18. النسخ الاحتياطي عبر `sqlite3 backup API` + `PRAGMA integrity_check`
-19. توجيه أزرار لوحة الأدمن الفرعية (AI/Backup/Excel لكل مستخدم) — تشغيل حي لـ `handle_admin_callback` الحقيقية
-20. اختبار حي لـ `GeminiProvider.parse()` الحقيقية عبر `httpx.MockTransport` — يتحقق من الموديل، وحذف المعاملات المهجورة، ووجود `thinkingConfig`
-21. اختبار حي لـ `/admin` (صمت تام لغير الأدمن، فتح اللوحة للأدمن) وتوجيه كل أزرار القائمة الرئيسية (`main:*`)
-
-شغّله بـ:
-
-```bash
-python termux_check.py
-```
-
-وفي النهاية يعطيك تقريرًا دقيقًا لكل بند PASS/FAIL/SKIP، ولو فشل شيء يذكر
-السبب بالضبط (مثلًا: مكتبة غير مثبتة، أو خطأ SQL محدد).
-
----
-
-## 6) تقرير التوافق — ما تم اختباره فعليًا وما لم يُختبر (بدون ادّعاءات)
-
-**لا أملك جهاز Termux/Android حقيقي في بيئة التنفيذ هذه، ولا اتصال إنترنت
-لتثبيت المكتبات.** هذا ما تحقق منه فعليًا في بيئة Linux x86_64 بدون إنترنت،
-وما بقي غير مُختبر حتى تشغّل `termux_check.py` بنفسك على جهازك:
-
-| البند | الحالة | كيف تحقّقت |
-|---|---|---|
-| Syntax لكل ملفات المشروع | ✅ PASS فعليًا | `py_compile` على كل الملفات |
-| DDL قاعدة البيانات (Schema) | ✅ PASS فعليًا | نفّذت الـ `SCHEMA` كاملة عبر `sqlite3` القياسية (بدون `aiosqlite`)، أدخلت مستخدم وعملية، وشغّلت كل استعلامات `db.py` (aggregates, sums) — كلها صحيحة |
-| `PRAGMA integrity_check` | ✅ PASS فعليًا | نفّذته على القاعدة التجريبية أعلاه |
-| Regex Parser (كل أمثلة الرسالة الأصلية) | ✅ PASS فعليًا | نفّذته ووازنت النتائج مع المطلوب حرفيًا |
-| تحويل العملة | ✅ PASS فعليًا | اختبرت 250$ → 375,000 د.ع |
-| تشويش/فك تشويش مفاتيح API | ✅ PASS فعليًا | round-trip ناجح، وتوليد `SECRET_KEY` تلقائيًا واختباره |
-| `openpyxl` (توليد Excel) | ✅ PASS فعليًا | كانت متوفرة محليًا في بيئتي، أنشأت ملف xlsx فعلي وتحققت من حجمه |
-| `zoneinfo` مع `Asia/Baghdad` | ✅ PASS جزئيًا | يعمل في بيئتي لأن نظام Linux فيها يملك قاعدة IANA. **لكن** حاكيت غياب قاعدة النظام (كما هو متوقع على Android الخام) عبر تفريغ `TZPATH`، وأكّدت أن `zoneinfo.ZoneInfo('Asia/Baghdad')` **يفشل فعلًا بدون** حزمة `tzdata` — وهذا بالضبط سبب وجودها في `requirements.txt`. لم أستطع تثبيت `tzdata` فعليًا (لا إنترنت) لأؤكد أن التثبيت عبر pip يحل المشكلة نهائيًا، لكن هذا سلوك موثّق رسميًا لمكتبة `zoneinfo`. |
-| توجيه أزرار لوحة الأدمن (AI / Backup / Excel لكل مستخدم) | ✅ PASS فعليًا | شغّلت `handle_admin_callback` الحقيقية من `handlers/admin.py` (لا محاكاة نظرية) مع بدائل خفيفة لـ `telegram`/`httpx`/`database.db` فقط لتفادي الحاجة لتثبيتها، وتحققت أن كل زر (`ai`, `ai_keys`, `ai_priority`, `ai_status`, `backup`, `backup_now`, `user_excel`) يوصل للدالة الصحيحة فعليًا. هذا الاختبار موجود الآن دائمًا داخل `termux_check.py` (فحص رقم 19) ليبقى يتأكد منه تلقائيًا في كل تشغيل مستقبلي. |
-| `GeminiProvider.parse()` بالموديل الجديد (`gemini-3.5-flash-lite`) | ✅ PASS فعليًا (بدون مفتاح حقيقي) | شغّلت الدالة الحقيقية نفسها عبر حقن عميل httpx مزيّف (نفس مبدأ `httpx.MockTransport`) بما أن `httpx` نفسها غير مثبتة عندي، وتحققت من شكل الـ URL والـ body وحذف المعاملات المهجورة ونجاح `_extract_json`. هذا الاختبار أيضًا مدمج دائمًا في `termux_check.py` (بند 20) وسيشغّله فعليًا عبر `httpx.MockTransport` الحقيقية على جهازك. **لم أتصل بخادم Gemini الحقيقي بمفتاح فعلي — هذا غير مؤكد نهائيًا حتى تختبره بمفتاحك عبر زر 🧪 اختبار في لوحة الأدمن.** |
-| `aiosqlite` | ❌ غير مُختبر هنا | لا إنترنت لتثبيتها في بيئتي. الكود يستخدم واجهتها القياسية (`connect`, `execute`, `Row factory`, context manager) بنفس نمط أي كود aiosqlite صحيح، لكن لم أشغّله فعليًا عبرها. |
-| `httpx` | ❌ غير مُختبر هنا | نفس السبب — غير مثبتة في بيئتي. |
-| `python-telegram-bot` (والتشغيل الفعلي كبوت) | ❌ غير مُختبر هنا | نفس السبب، ولا يوجد توكن بوت حقيقي لأختبره أصلًا. |
-| التثبيت الفعلي على معمارية ARM64/Termux حقيقية | ❌ غير مُختبر إطلاقًا | بيئتي x86_64 وليست Termux. |
-| رقم إصدار `python-telegram-bot>=21.6` كأحدث إصدار متوافق فعلي على PyPI الآن | ⚠️ لم أتحقق live | لا إنترنت لأراجع PyPI في لحظة كتابة هذا. الرقم مبني على معرفتي، **تحقق منه بنفسك** بـ `pip index versions python-telegram-bot` أو ببساطة اترك `requirements.txt` بدون تحديد نسخة إذا فضّلت أحدث إصدار متاح تلقائيًا. |
-
-**خلاصة صادقة:** كل شيء لا يحتاج المكتبات الثلاث غير المتوفرة عندي
-(`aiosqlite`, `httpx`, `telegram`) اختبرته فعليًا ونجح. الثلاثة المتبقية —
-وبالتالي تشغيل البوت الحقيقي بالكامل من طرف إلى طرف — **يعتمد عليك تشغيل
-`termux_check.py` على جهازك** لتأكيد PASS النهائي. هذا بالضبط سبب وجود
-`termux_check.py` كخطوة إلزامية قبل `python bot.py`.
-
----
-
-## 7) بنية المشروع
-
-```
-wallet/
-├── bot.py                 نقطة التشغيل (بدون APScheduler — asyncio loop بسيط)
-├── config.py               الإعدادات من .env + توليد SECRET_KEY تلقائيًا
-├── termux_check.py         فحص توافق شامل (runtime، ليس compile فقط)
-├── install.sh              سكربت تثبيت Termux جاهز
-├── database/                SQLite: models / db / migrations
-├── parser/                  AI Parser -> Validation -> Regex fallback
-├── ai/                       AI Router + Providers عبر httpx فقط (بدون SDKs)
-├── handlers/                 كل معالجات تيليجرام
-├── reports/                  تجميع الإحصائيات والتقارير الشهرية
-├── backup/                   نسخ احتياطي آمن + استعادة
-├── utils/                    عملة، تاريخ (zoneinfo)، تصنيفات، أمان (بدون cryptography)
-├── exports/                  ملفات Excel المُصدَّرة
-└── backups/                  النسخ الاحتياطية
-```
-
-## 8) ملاحظات أمان أخرى
-
-- كل استعلام لبيانات المستخدم مفلتر بـ `user_id` على مستوى قاعدة البيانات.
-- كل عملية أدمن تتحقق من `telegram_id == ADMIN_ID` قبل التنفيذ.
-- لا توجد أي secrets داخل الكود؛ كل شيء عبر `.env` أو قاعدة البيانات.
-- `Restore` يأخذ نسخة احتياطية تلقائية قبل أي استبدال، ويرجع للنسخة القديمة
-  تلقائيًا إذا فشل التحقق من سلامة الملف الجديد.
-- لا استخدام لـ `fcntl`, `systemd`, أو أي مسار `/etc/` — كل شيء عبر مكتبات
-  Python القياسية أو ملفات داخل مجلد المشروع نفسه، متوافق مع بيئة Termux
-  المقيّدة (sandboxed) على Android.
-
-## 9) اختبار سريع بعد التشغيل
-
-أرسل للبوت:
-```
-500 اكل
-راتب 750 الف
-250 ببسي
-شكد صرفت اليوم؟
-```
-وجرّب `/admin` (لازم يفتح اللوحة لو أنت الأدمن، وما يرد بشي لو مو أنت).
-
-## 10) الرصيد التراكمي الدائم (Carry Forward) — إصلاح جذري
-
-**المشكلة السابقة:** التقرير الشهري كان يعرض دخل/مصروف/صافي الشهر فقط،
-فيظهر للمستخدم وكأن الرصيد يبدأ من الصفر كل شهر — بينما رصيد الأشهر السابقة
-"مخفي" عن العرض.
-
-**الحل:** وحدة مركزية جديدة `reports/balance.py` — المصدر الوحيد للحقيقة،
-تستخدمها شاشة الرصيد والتقارير الشهرية والمقارنات وتصدير Excel (نفس الأرقام
-في كل مكان):
-
-- `wallet_balance(user_id)` — الرصيد الحقيقي: كل الإيرادات − كل المصاريف.
-- `month_statement(user_id, year, month)` — كشف الشهر: المرحّل (بداية الشهر)
-  + دخل/مصروف/صافي الشهر فقط + رصيد النهاية.
-- `balance_before(user_id, date_str)` — صافي كل العمليات قبل تاريخ معين.
-
-**القواعد المطبقة:**
-- ممنوع تصفير الرصيد تلقائيًا — لا يوجد أي كود يحذف العمليات عند بداية الشهر
-  (تحقّقت: لا يوجد `DELETE` شهري في أي مكان).
-- لا تُنشأ عملية وهمية لترحيل الرصيد — المرحّل قيمة حسابية للعرض فقط.
-- كل عملية تُحوَّل للدينار بسعر الصرف المحفوظ معها وقت التسجيل (`amount_iqd`)،
-  وتغيير سعر الصرف لاحقًا لا يمسّ العمليات القديمة.
-- كل مستخدم رصيده مستقل تمامًا (`user_id` في كل استعلام).
-
-**شاشة الرصيد الجديدة تعرض قسمين منفصلين:**
-1. 💰 الرصيد الحالي للمحفظة (تراكمي: الدخل الكلي / المصروف الكلي / الرصيد).
-2. 📊 ملخص الشهر الحالي (المرحّل / دخل الشهر / مصروف الشهر / صافي الشهر).
-
-**التقرير الشهري الجديد يعرض:** المرحّل (بداية الشهر) ← الدخل ← المصروف ←
-صافي الشهر ← رصيد نهاية الشهر، ثم أكثر التصنيفات صرفًا.
-
-**ملف Excel:** قسم الملخص صار يعرض "الرصيد المرحّل (بداية الفترة)" و"رصيد
-نهاية الفترة" بنفس الحسابات المركزية — لا اختلاف بين البوت والملف.
-
-**الاختبارات:** `tests/test_carry_forward.py` — 24 فحصًا بتواريخ ثابتة
-(لا تعتمد على تاريخ اليوم)، تغطي: عدم التصفير عند الشهر الجديد، الترحيل
-الصحيح، استقلال المستخدمين، ثبات سعر الصرف، تطابق Excel مع البوت، وعدم
-إنشاء عمليات وهمية. التشغيل: `python tests/test_carry_forward.py`
-(يحتاج `aiosqlite` + `python-dotenv` + `openpyxl` فقط — بدون توكن تيليجرام).
+[MIT](LICENSE) — Copyright (c) 2026 tahagamer712-beep.

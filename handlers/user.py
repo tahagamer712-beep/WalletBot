@@ -26,7 +26,35 @@ HOME_TEXT = "🏠 القائمة الرئيسية"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_user = update.effective_user
+    # Check if new user
+    _is_new = await db.get_user_by_telegram_id(tg_user.id) is None
     user = await db.get_or_create_user(tg_user.id, tg_user.full_name, tg_user.username or "")
+    # New user notification to admin (Taha)
+    if _is_new:
+        try:
+            from database.db import get_conn
+            async with get_conn() as _conn:
+                _cur = await _conn.execute("SELECT COUNT(*) FROM users")
+                _total = (await _cur.fetchone())[0]
+            _uname = f"@{tg_user.username}" if tg_user.username else "بدون معرف"
+            _fname = tg_user.first_name or ""
+            if tg_user.last_name:
+                _fname += f" {tg_user.last_name}"
+            _lang = tg_user.language_code or "unknown"
+            _notif = (
+                "👾 شخص جديد دخل البوت\n"
+                "\n"
+                "👤 معلومات العضو الجديد:\n"
+                f"• الاسم: {_fname}\n"
+                f"• المعرف: {_uname}\n"
+                f"• الآيدي: {tg_user.id}\n"
+                f"• 🌐 اللغة: {_lang}\n"
+                "\n"
+                f"📊 إجمالي المستخدمين: {_total}"
+            )
+            await context.bot.send_message(chat_id=5149213983, text=_notif)
+        except Exception:
+            pass
 
     name = tg_user.first_name or tg_user.full_name or "صديقي"
     text = (

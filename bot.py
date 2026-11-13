@@ -10,6 +10,7 @@ import datetime
 from zoneinfo import ZoneInfo
 
 from telegram import Update, BotCommand
+from telegram.request import HTTPXRequest
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
 )
@@ -81,7 +82,7 @@ def main():
     if not config.ADMIN_ID:
         logger.warning("ADMIN_ID غير مضبوط — لن يكون هناك أدمن للبوت.")
 
-    application = Application.builder().token(config.BOT_TOKEN).post_init(_post_init).build()
+    application = Application.builder().token(config.BOT_TOKEN).post_init(_post_init).request(HTTPXRequest(connect_timeout=10, read_timeout=30, write_timeout=30, pool_timeout=10)).get_updates_request(HTTPXRequest(connect_timeout=10, read_timeout=60, write_timeout=30, pool_timeout=10)).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_cmd))
